@@ -77,15 +77,17 @@ public class LocalKeyByFlatMapFunc extends RichFlatMapFunction<Tuple2<String, Lo
         localBuffer = new HashMap();
         if (context.isRestored()) {
             // 从状态中恢复数据到 buffer 中
+            int size = 0;
             for (Tuple2<String, Long> midAndCount : listState.get()) {
                 // 如果出现 pv != 0,说明改变了并行度，ListState 中的数据会被均匀分发到新的 subtask中
                 // 单个 subtask 恢复的状态中可能包含多个相同的 mid 的 count数据
                 // 所以每次先取一下buffer的值，累加再put
                 long count = localBuffer.getOrDefault(midAndCount.f0, 0L);
                 localBuffer.put(midAndCount.f0, count + midAndCount.f1);
+                size += count;
             }
             // 从状态恢复时，默认认为 buffer 中数据量达到了 batchSize，需要向下游发
-            currentSize = new AtomicInteger(batchSize);
+            currentSize = new AtomicInteger(size);
         } else {
             currentSize = new AtomicInteger(0);
         }
